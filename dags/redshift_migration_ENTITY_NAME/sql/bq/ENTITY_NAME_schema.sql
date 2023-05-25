@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS redshift_raw.ENTITY_NAME
+CREATE TABLE IF NOT EXISTS redshift_eu.ENTITY_NAME
 (
 
     checksum        STRING OPTIONS (DESCRIPTION ="RedShift MD5 checksum of concatenated columns"),

@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS redshift_raw.event
+CREATE TABLE IF NOT EXISTS redshift_eu.event
 (
     eventid         INT,
     venueid         INT,

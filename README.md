@@ -217,6 +217,14 @@ pip3 install -r dags/local-requirements.txt
    the RedShift one. _Reference:_ https://cloud.google.com/bigquery/docs/migration/redshift-sql
 7. Replace ENTITY_NAME to yours at scripts, filenames and config values to the real one
 
+#### DQ Tests
+
+Compile 
+
+```shell
+cd tests && python compile.py event.yaml event-compiled.yaml
+```
+
 ### Deploy DAG
 
 #### Build common plugin

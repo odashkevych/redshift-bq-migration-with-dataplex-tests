@@ -1,0 +1,1 @@
+SELECT sum(line_count) FROM stl_unload_log WHERE path like 's3://redshift-sample-data-d001/unload/event/%(export_datetime)s/%%'

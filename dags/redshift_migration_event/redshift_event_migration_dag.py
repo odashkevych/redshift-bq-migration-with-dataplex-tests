@@ -5,6 +5,7 @@ from datetime import timedelta, datetime
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.python import ShortCircuitOperator
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.providers.amazon.aws.operators.redshift_data import RedshiftDataOperator
 from airflow.providers.amazon.aws.sensors.s3 import S3KeySensor
 from airflow.providers.google.cloud.operators.bigquery import BigQueryExecuteQueryOperator
@@ -24,18 +25,21 @@ log = logging.getLogger()
 entity_name = "event"
 config = file_operations.load_schema_from_json(f'redshift_migration_{entity_name}/{entity_name}-entity-config.json')
 gcp_config = config['gcp']
-target_bq_table_sink = bq_data_operations.get_full_table_id(gcp_config['project'], gcp_config['dataset_id'], gcp_config['table_id'])
+target_bq_table_sink = bq_data_operations.get_full_table_id(gcp_config['project'], gcp_config['dataset_id'],
+                                                            gcp_config['table_id'])
+dataset_region_id = gcp_config['dataset_region_id']
 aws_config = config['aws']
-ts_incremental_column_name = config['ts-incremental-column-name']
+ts_incremental_column_name = config['ts_incremental_column_name']
+run_dq_tests: bool = config['run_dq_tests']
 
 with DAG(
         dag_id=f'redshift-to-bq-{entity_name}-migration',
         start_date=days_ago(1),
         default_args={'retries': 1, 'retry_delay': timedelta(minutes=5)},
         description=f'Redshift {entity_name} table DAG',
-        schedule_interval='@once',
+        schedule_interval=None,
         catchup=False,
-        tags=['redshift-data-migration', 'beta-5.0'],
+        tags=['redshift-data-migration', 'beta-6.0'],
 ) as dag:
     generate_export_datetime = PythonOperator(
         task_id='generate_export_datetime',
@@ -69,9 +73,10 @@ with DAG(
         task_id='check_if_table_has_new_records',
         aws_conn_id='aws_default',
         db_user='awsuser',
-        sql=file_operations.read_sql_file(f'redshift_migration_{entity_name}/sql/redshift/new_records_exist_after_ts.sql')
+        sql=file_operations.read_sql_file(
+            f'redshift_migration_{entity_name}/sql/redshift/new_records_exist_after_ts.sql')
             % {'column_name': ts_incremental_column_name, 'insert_time': previous_insert_time,
-               'table_id': aws_config['table-id']},
+               'table_id': aws_config['table_id']},
         database='dev',
         cluster_identifier='<RS_CLUSTER_ID>',
         return_sql_result=True,
@@ -98,7 +103,7 @@ with DAG(
         aws_conn_id='aws_default',
         db_user='awsuser',
         sql=file_operations.read_sql_file(f'redshift_migration_{entity_name}/sql/redshift/unload_{entity_name}.sql')
-            % {'table_id': aws_config['table-id'], 'insert_time': previous_insert_time,
+            % {'table_id': aws_config['table_id'], 'insert_time': previous_insert_time,
                'export_datetime': export_datetime},
         database='dev',
         cluster_identifier='<RS_CLUSTER_ID>',
@@ -107,7 +112,7 @@ with DAG(
 
 
     def get_s3_unload_files_wildcard(**kwargs):
-        return f"s3://{aws_config['bucket']}/{aws_config['path']}{export_datetime}/{aws_config['file-prefix']}*{aws_config['file-format']}"
+        return f"s3://{aws_config['bucket']}/{aws_config['path']}{export_datetime}/{aws_config['file_prefix']}*{aws_config['file_format']}"
 
 
     s3_key_sensor = S3KeySensor(
@@ -146,7 +151,7 @@ with DAG(
                 "max_bad_records": "0",
                 "skip_leading_rows": "0",
                 "write_disposition": "APPEND",
-                "data_path_template": f"gs://{gcp_config['bucket']}/{gcp_config['path']}{export_datetime}/{gcp_config['file-prefix']}*{gcp_config['file-format']}",
+                "data_path_template": f"gs://{gcp_config['bucket']}/{gcp_config['path']}{export_datetime}/{gcp_config['file_prefix']}*{gcp_config['file_format']}",
                 "destination_table_name_template": gcp_config["table_id"],
                 "file_format": "PARQUET"
             },
@@ -158,7 +163,7 @@ with DAG(
 
     run_bq_transfer_job = BigQueryDataTransferServiceStartTransferRunsOperator(
         task_id='run_bq_transfer_job',
-        location='europe-north1',
+        location=dataset_region_id,
         transfer_config_id=transfer_config_id_,
         project_id=gcp_config['project'],
         requested_run_time={"seconds": int(time.time() + 60)},
@@ -168,7 +173,7 @@ with DAG(
 
     bq_transfer_job_succeeded = BigQueryDataTransferServiceTransferRunSensor(
         task_id='bq_transfer_job_succeeded',
-        location='europe-north1',
+        location=dataset_region_id,
         run_id=bq_transfer_job_run_id,
         transfer_config_id=transfer_config_id_,
         expected_statuses='SUCCEEDED'
@@ -186,7 +191,7 @@ with DAG(
         python_callable=file_operations.calculate_total_rows,
         op_kwargs={
             'bucket_name': f"{gcp_config['bucket']}",
-            'prefix': f"{gcp_config['path']}{export_datetime}/{gcp_config['file-prefix']}"
+            'prefix': f"{gcp_config['path']}{export_datetime}/{gcp_config['file_prefix']}"
         },
         execution_timeout=timedelta(minutes=10),  # Increase timeout to 10 minutes
     )
@@ -197,10 +202,11 @@ with DAG(
         python_callable=bq_data_operations.query_bq_single_value,
         op_kwargs=
         {
-            'sql': file_operations.read_sql_file(f'redshift_migration_{entity_name}/sql/bq/get_amount_of_inserted_rows.sql') % {
-                'table_id': target_bq_table_sink,
-                'export_datetime': export_datetime
-            }
+            'sql': file_operations.read_sql_file(
+                f'redshift_migration_{entity_name}/sql/bq/get_amount_of_inserted_rows.sql') % {
+                       'table_id': target_bq_table_sink,
+                       'export_datetime': export_datetime
+                   }
         },
         dag=dag)
 
@@ -224,7 +230,8 @@ with DAG(
         python_callable=bq_data_operations.query_bq_single_value,
         op_kwargs=
         {
-            'sql': file_operations.read_sql_file(f'redshift_migration_{entity_name}/sql/bq/validate_{entity_name}_bq_checksum.sql')
+            'sql': file_operations.read_sql_file(
+                f'redshift_migration_{entity_name}/sql/bq/validate_{entity_name}_bq_checksum.sql')
                    % {'table_id': target_bq_table_sink, 'export_datetime': export_datetime},
         },
         dag=dag)
@@ -235,7 +242,17 @@ with DAG(
         python_callable=lambda **kwargs: kwargs['ti'].xcom_pull(task_ids='compare_redshift_checksum_with_bq') == 'True',
     )
 
+    trigger_data_quality_dag = TriggerDagRunOperator(
+        task_id='trigger_data_quality_dag',
+        trigger_dag_id=f'{entity_name}-data-quality-check',
+        wait_for_completion=True,
+        dag=dag
+    )
+
     generate_export_datetime >> bq_create_table >> get_previous_insert_time >> check_if_table_has_new_records >> \
     validate_table_has_new_records >> unload_to_s3 >> s3_key_sensor >> create_s3_transfer_job >> create_bq_transfer >> \
     run_bq_transfer_job >> bq_transfer_job_succeeded >> [count_files_total_rows, get_bq_total_rows] >> \
     validate_rows_number_equal >> compare_redshift_checksum_with_bq >> validate_checksum
+
+    if run_dq_tests:
+        validate_checksum.set_downstream(trigger_data_quality_dag)
