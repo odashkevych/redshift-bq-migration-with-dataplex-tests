@@ -1,0 +1,1 @@
+SELECT count(*) > 0 as has_new FROM %(table_id)s WHERE %(column_name)s > '%(insert_time)s'

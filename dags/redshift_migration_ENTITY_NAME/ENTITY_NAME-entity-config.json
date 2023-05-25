@@ -1,0 +1,21 @@
+{
+  "gcp": {
+    "project": "<YOUR_GCP_PROJECT_ID>",
+    "dataset_id": "redshift_raw",
+    "table_id": "ENTITY_NAME",
+    "bucket": "redshift-sample-data-d001",
+    "path": "s3-unload/ENTITY_NAME/",
+    "file-prefix": "ENTITY_NAME_",
+    "file-format": ".parquet"
+  },
+  "aws": {
+    "credentials": "<RS_CLUSTER_ID>",
+    "cluster_id": "<RS_CLUSTER_ID>",
+    "bucket": "redshift-sample-data-d001",
+    "path": "unload/ENTITY_NAME/",
+    "file-prefix": "ENTITY_NAME_",
+    "file-format": ".parquet",
+    "table-id": "dev.public.ENTITY_NAME"
+  },
+  "ts-incremental-column-name": "insert_time"
+}

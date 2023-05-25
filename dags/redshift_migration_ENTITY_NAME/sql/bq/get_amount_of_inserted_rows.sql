@@ -1,0 +1,1 @@
+SELECT COUNT(*) as amount FROM `%(table_id)s` WHERE export_datetime = '%(export_datetime)s'

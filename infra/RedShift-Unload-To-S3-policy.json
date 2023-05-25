@@ -1,0 +1,49 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "redshift:ListSchemas",
+                "redshift-data:GetStatementResult",
+                "redshift:DescribeTags",
+                "redshift:GetClusterCredentialsWithIAM",
+                "redshift:ExecuteQuery",
+                "redshift:GetClusterCredentials",
+                "redshift-data:DescribeStatement",
+                "redshift:FetchResults",
+                "redshift:DescribeTable",
+                "redshift:ListTables"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor1",
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucketMultipartUploads",
+                "s3:CreateBucket",
+                "s3:ListBucket",
+                "s3:PutBucketCORS",
+                "s3:GetBucketAcl",
+                "redshift-data:ExecuteStatement",
+                "s3:ListMultipartUploadParts",
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:GetEncryptionConfiguration",
+                "s3:AbortMultipartUpload",
+                "s3:GetBucketCORS",
+                "s3:PutBucketAcl",
+                "s3:DeleteObject",
+                "s3:GetBucketLocation"
+            ],
+            "Resource": [
+                "arn:aws:s3:::redshift-sample-data-d001",
+                "arn:aws:s3:::*/*",
+                "arn:aws:redshift:eu-north-1:<ROLE_ID>:cluster:<RS_CLUSTER_ID>",
+                "arn:aws:redshift-serverless:*:<ROLE_ID>:workgroup/*"
+            ]
+        }
+    ]
+}

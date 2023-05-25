@@ -1,0 +1,20 @@
+{
+  "gcp": {
+    "project": "<YOUR_GCP_PROJECT_ID>",
+    "dataset_id": "redshift_raw",
+    "table_id": "event",
+    "bucket": "redshift-sample-data-d001",
+    "path": "s3-unload/event/",
+    "file-prefix": "event_",
+    "file-format": ".parquet"
+  },
+  "aws": {
+    "credentials": "<RS_CLUSTER_ID>",
+    "cluster_id": "<RS_CLUSTER_ID>",
+    "bucket": "redshift-sample-data-d001",
+    "path": "unload/event/",
+    "file-prefix": "event_",
+    "file-format": ".parquet",
+    "table-id": "dev.public.event"
+  }
+}
